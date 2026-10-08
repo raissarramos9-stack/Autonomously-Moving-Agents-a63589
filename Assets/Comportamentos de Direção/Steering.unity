@@ -220,9 +220,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 278152210}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 041addd738bfb8843962b9e8a14eff2b, type: 3}
+  m_Script: {fileID: 11500000, guid: 141a0d8d1d968a840b26772ea36ae677, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Bot2
+  m_EditorClassIdentifier: Assembly-CSharp::Bot
   target: {fileID: 1076636754}
 --- !u!1001 &396088618
 PrefabInstance:
@@ -442,9 +442,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1076636754}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8eafada277bf1594f9c1ac846fb0467d, type: 3}
+  m_Script: {fileID: 11500000, guid: 8252f08ac0b234ec99bccd94ec15a342, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Drive2
+  m_EditorClassIdentifier: Assembly-CSharp::Drive
   speed: 10
   rotationSpeed: 100
   currentSpeed: 0
