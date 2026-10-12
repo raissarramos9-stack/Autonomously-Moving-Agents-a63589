@@ -1,149 +1,300 @@
-using System.Collections;
-using System.Collections.Generic;
+
 using UnityEngine;
 using UnityEngine.AI;
 
 public class Bot4 : MonoBehaviour
 {
-    NavMeshAgent agent;
     public GameObject target;
-    Drive4 ds;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-   void Start()
-{
-    agent = GetComponent<NavMeshAgent>();
+    private NavMeshAgent agent;
+    private Drive4 ds;
 
-    if (agent == null)
-        Debug.LogError("❌ BOT2 NÃO TEM NAV MESH AGENT!");
-
-    if (target == null)
+    void Start()
     {
-        Debug.LogError("❌ BOT2 NÃO TEM TARGET!");
-        return;
+        agent = GetComponent<NavMeshAgent>();
+
+        if (target == null)
+        {
+            Debug.LogError("Bot4: Tens de atribuir o Target no Inspector!", this);
+            enabled = false;
+            return;
+        }
+
+        ds = target.GetComponent<Drive4>();
+
+        if (ds == null)
+        {
+            Debug.LogError("Bot4: O objeto Target não tem o script Drive!", this);
+            enabled = false;
+            return;
+        }
+
+        if (agent == null)
+        {
+            Debug.LogError("Bot4: Falta o componente NavMeshAgent!", this);
+            enabled = false;
+            return;
+        }
     }
-
-    ds = target.GetComponent<Drive4>();
-
-    if (ds == null)
-        Debug.LogError("❌ O TARGET NÃO TEM O SCRIPT DRIVE!");
-    else
-        Debug.Log("✅ TARGET E DRIVE ENCONTRADOS!");
-}
 
     void Seek(Vector3 location)
     {
-        agent.SetDestination(location);
+        if (agent != null && agent.isOnNavMesh)
+        {
+            agent.SetDestination(location);
+        }
     }
 
     void Flee(Vector3 location)
     {
-        Vector3 fleeVector = location - this.transform.position;
-        agent.SetDestination(this.transform.position - fleeVector);
+        Vector3 fleeVector = location - transform.position;
+        Seek(transform.position - fleeVector);
     }
 
     void Pursue()
     {
-        Vector3 targetDir = target.transform.position - this.transform.position;
+        if (target == null || ds == null || agent == null)
+            return;
+
+        Vector3 targetDir = target.transform.position - transform.position;
 
         float relativeHeading = Vector3.Angle(
-            this.transform.forward,
-            this.transform.TransformVector(target.transform.forward)
+            transform.forward,
+            transform.InverseTransformDirection(target.transform.forward)
         );
 
         float toTarget = Vector3.Angle(
-            this.transform.forward,
-            this.transform.TransformVector(targetDir)
+            transform.forward,
+            transform.InverseTransformDirection(targetDir)
         );
 
-        if ((toTarget > 90 && relativeHeading < 20) || ds.currentSpeed < 0.01f)
+        if ((toTarget > 90.0f && relativeHeading < 20.0f) ||
+            ds.currentSpeed < 0.01f)
         {
             Seek(target.transform.position);
             return;
         }
 
-        float lookAhead = targetDir.magnitude / (agent.speed + ds.currentSpeed);
+        float totalSpeed = agent.speed + ds.currentSpeed;
 
-        Seek(target.transform.position + target.transform.forward * lookAhead);
+        if (totalSpeed <= 0.01f)
+        {
+            Seek(target.transform.position);
+            return;
+        }
+
+        float lookAhead = targetDir.magnitude / totalSpeed;
+
+        Seek(target.transform.position +
+             target.transform.forward * lookAhead);
     }
 
     void Evade()
     {
-        Vector3 targetDir = target.transform.position - this.transform.position;
+        if (target == null || ds == null || agent == null)
+            return;
 
-        float lookAhead = targetDir.magnitude / (agent.speed + ds.currentSpeed);
+        Vector3 targetDir = target.transform.position - transform.position;
+        float totalSpeed = agent.speed + ds.currentSpeed;
 
-        Flee(target.transform.position + target.transform.forward * lookAhead);
+        if (totalSpeed <= 0.01f)
+        {
+            Flee(target.transform.position);
+            return;
+        }
+
+        float lookAhead = targetDir.magnitude / totalSpeed;
+
+        Flee(target.transform.position +
+             target.transform.forward * lookAhead);
     }
 
     Vector3 wanderTarget = Vector3.zero;
 
     void Wander()
     {
-        float wanderRadius = 10;
-        float wanderDistance = 10;
-        float wanderJitter = 1;
+        float wanderRadius = 10.0f;
+        float wanderDistance = 10.0f;
+        float wanderJitter = 1.0f;
 
-        wanderTarget += new Vector3(Random.Range(-1.0f, 1.0f) * wanderJitter,
-                                     0,
-                                     Random.Range(-1.0f,1.0f) * wanderJitter);
+        wanderTarget += new Vector3(
+            Random.Range(-1.0f, 1.0f) * wanderJitter,
+            0.0f,
+            Random.Range(-1.0f, 1.0f) * wanderJitter
+        );
+
         wanderTarget.Normalize();
         wanderTarget *= wanderRadius;
 
-        Vector3 targetLocal = wanderTarget + new Vector3(0, 0, wanderDistance);
-        Vector3 targetWorld = this.gameObject.transform.InverseTransformVector(targetLocal);
+        Vector3 targetLocal = wanderTarget +
+                              new Vector3(0.0f, 0.0f, wanderDistance);
+
+        Vector3 targetWorld = transform.TransformPoint(targetLocal);
 
         Seek(targetWorld);
     }
 
-    void CleverHide()
+    void Hide()
     {
+        if (target == null || World4.Instance == null)
+            return;
+
+        GameObject[] hidingSpots = World4.Instance.GetHidingSpots();
+
+        if (hidingSpots == null || hidingSpots.Length == 0)
+            return;
+
         float dist = Mathf.Infinity;
-        Vector3 chosenSpot = Vector3.zero;
-        Vector3 chosenDir = Vector3.zero;
-        GameObject chosenGo = World3.Instance.GetHidingSpots()[0];
+        Vector3 chosenSpot = transform.position;
 
-        for(int i = 0; i < World3.Instance.GetHidingSpots().Length; i++)
+        foreach (GameObject spot in hidingSpots)
         {
-            Vector3 hideDir = World3.Instance.GetHidingSpots()[i].transform.position - target.transform.position;
-            Vector3 hidePos = World3.Instance.GetHidingSpots()[i].transform.position + hideDir.normalized * 10;
+            if (spot == null)
+                continue;
 
-            if(Vector3. Distance(this.transform.position, hidePos) < dist)
+            Vector3 hideDir =
+                spot.transform.position - target.transform.position;
+
+            Vector3 hidePos =
+                spot.transform.position + hideDir.normalized * 10.0f;
+
+            float currentDist = Vector3.Distance(transform.position, hidePos);
+
+            if (currentDist < dist)
             {
                 chosenSpot = hidePos;
-                chosenDir = hideDir;
-                chosenGo = World3.Instance.GetHidingSpots()[i];
-                dist = Vector3. Distance(this.transform.position, hidePos);
+                dist = currentDist;
             }
         }
 
-        Collider hideCol = chosenGo.GetComponent<Collider>();
-        Ray backRay = new Ray(chosenSpot, -chosenDir.normalized);
-        RaycastHit info;
-        float distance = 250.0f;
-        hideCol.Raycast(backRay, out info, distance);
+        if (dist < Mathf.Infinity)
+            Seek(chosenSpot);
+    }
 
-        Seek(info.point + chosenDir.normalized);
+    void CleverHide()
+    {
+        if (target == null || World4.Instance == null)
+            return;
+
+        GameObject[] hidingSpots = World4.Instance.GetHidingSpots();
+
+        if (hidingSpots == null || hidingSpots.Length == 0)
+            return;
+
+        float dist = Mathf.Infinity;
+        Vector3 chosenSpot = transform.position;
+        Vector3 chosenDir = Vector3.zero;
+        GameObject chosenGO = null;
+
+        foreach (GameObject spot in hidingSpots)
+        {
+            if (spot == null)
+                continue;
+
+            Vector3 hideDir =
+                spot.transform.position - target.transform.position;
+
+            Vector3 hidePos =
+                spot.transform.position + hideDir.normalized * 10.0f;
+
+            float currentDist = Vector3.Distance(transform.position, hidePos);
+
+            if (currentDist < dist)
+            {
+                chosenSpot = hidePos;
+                chosenDir = hideDir;
+                chosenGO = spot;
+                dist = currentDist;
+            }
+        }
+
+        if (chosenGO == null)
+            return;
+
+        Collider hideCol = chosenGO.GetComponent<Collider>();
+
+        if (hideCol == null)
+        {
+            Seek(chosenSpot);
+            return;
+        }
+
+        Ray backRay = new Ray(chosenSpot, -chosenDir.normalized);
+
+        if (hideCol.Raycast(backRay, out RaycastHit info, 100.0f))
+        {
+            Seek(info.point + chosenDir.normalized * 2.0f);
+        }
+        else
+        {
+            Seek(chosenSpot);
+        }
     }
 
     bool CanSeeTarget()
     {
-        RaycastHit raycastInfo;
-        Vector3 rayToTarget = target.transform.position - this.transform.position;
-        if(Physics.Raycast(this.transform.position, rayToTarget, out raycastInfo))
+        if (target == null)
+            return false;
+
+        Vector3 rayToTarget = target.transform.position - transform.position;
+
+        float lookAngle = Vector3.Angle(transform.forward, rayToTarget);
+
+        if (lookAngle < 60.0f &&
+            Physics.Raycast(transform.position, rayToTarget, out RaycastHit hit))
         {
-            if(raycastInfo.transform.gameObject.tag == "cop")
-            return true;
+            if (hit.transform.CompareTag("cop"))
+                return true;
         }
+
         return false;
     }
 
-    // Update is called once per frame
-void Update()
-{
-    if (CanSeeTarget())
+    bool TargetCanSeeMe()
     {
-        CleverHide();
+        if (target == null)
+            return false;
+
+        Vector3 rayToTarget = transform.position - target.transform.position;
+
+        float lookAngle = Vector3.Angle(
+            target.transform.forward,
+            rayToTarget
+        );
+
+        return lookAngle < 60.0f;
     }
-}
+
+    private bool coolDown = false;
+
+    void BehaviourCooldown()
+    {
+        coolDown = false;
+    }
+
+    void Update()
+    {
+        if (target == null || ds == null || agent == null)
+            return;
+
+        if (!coolDown)
+        {
+            if (CanSeeTarget() && TargetCanSeeMe())
+            {
+                CleverHide();
+
+                coolDown = true;
+                Invoke(nameof(BehaviourCooldown), 5.0f);
+            }
+            else
+            {
+                Pursue();
+            }
+        }
+    }
+
+    void OnDisable()
+    {
+        CancelInvoke(nameof(BehaviourCooldown));
+    }
 }
